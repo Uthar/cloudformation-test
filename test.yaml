@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "test environment"
+
+Resources:
+  
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: test.galkowski.dev
+
+  MyKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: kasper-pubkey
+      PublicKeyMaterial: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKTXPjr06iNRuC0VMRO7hKA9x3NMe5W02g4v/2OujcEe
+
+  MyVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/16
+
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  MyInternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref MyInternetGateway
+      VpcId: !Ref MyVpc
+
+  MySubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.42.20.0/24
+      VpcId: !Ref MyVpc
+
+  MyRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVpc
+
+  MyRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MyRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+
+  MyRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref MyRouteTable
+      SubnetId: !Ref MySubnet
+
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Test group
+      VpcId: !Ref MyVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  MyInstance:
+    DependsOn: MyInternetGatewayAttachment
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0d84a3c966e80e500
+      InstanceType: t4g.nano
+      CreditSpecification:
+        CPUCredits: standard
+      KeyName: !Ref MyKeyPair
+      NetworkInterfaces: 
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref MySubnet
+          GroupSet:
+            - !Ref MySecurityGroup
